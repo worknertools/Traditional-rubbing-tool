@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <title>Untitled</title>
+    
+
+  </head>
+    
+  <body>
+  <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>有机拓印生成器</title>
+    <style>
+        :root {
+            /* 统一使用的浅色 UI 风格，页面背景改为浅灰色 */
+            --bg-color: #e8ebed;
+            --panel-bg: #ffffff;
+            --accent: #4a725b;
+            --text-main: #333333;
+            --control-border: #e0e8e3;
+            --track-bg: #d0ded5; 
+            --canvas-bg: #e8ebed; 
+            --canvas-border: #c4d1c9;
+            --hint-color: #777777;
+            --label-color: #555555;
+            --btn-text: #ffffff;
+            --btn-hover: #3b5a48; 
+            --btn-dl: #2c4a3b;
+            --preview-bg: #f8faf9;
+        }
+
+        /* 基础重置，启用全屏沉浸式布局 */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 0;
+            height: 100vh; width: 100vw;
+            overflow: hidden; 
+            background-color: #e8ebed; /* Fallback for ancient browsers */
+            background-color: var(--bg-color);
+            color: #333333;
+            color: var(--text-main);
+        }
+        
+        .container {
+            display: flex;
+            width: 100%; 
+            height: 100%;
+        }
+        
+        /* 左侧固定控制面板 */
+        .left-panel {
+            flex: 0 0 340px; 
+            background: #ffffff;
+            background: var(--panel-bg);
+            padding: 30px 25px;
+            box-sizing: border-box;
+            display: flex; flex-direction: column;
+            overflow-y: auto; 
+            border-right: 1px solid #e0e8e3;
+            border-right: 1px solid var(--control-border);
+            z-index: 10;
+        }
+
+        /* 顶部预览图框 */
+        .preview-box {
+            width: 100%; height: 160px;
+            border: none;
+            border-radius: 0;
+            margin-bottom: 25px;
+            display: flex; justify-content: center; align-items: center;
+            background: #d0ded5; 
+            background: var(--track-bg); 
+            box-sizing: border-box;
+            overflow: hidden;
+            flex-shrink: 0;
+            transition: background-color 0.3s;
+        }
+        .preview-box span { 
+            color: #555555;
+            color: var(--label-color); 
+            font-size: 14px; font-weight: 500; text-align: center; 
+        }
+        .preview-box img { 
+            width: 100%; height: 100%; 
+            object-fit: contain; 
+            display: none; 
+            border-radius: 0; 
+        }
+
+        .upload-area { margin-bottom: 20px; display: flex; flex-direction: column;}
+        input[type="file"] { display: none; }
+        
+        /* 画布比例 UI */
+        .ratio-container {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 25px;
+        }
+        .ratio-wrapper { display: flex; align-items: center; }
+        .ratio-text { 
+            cursor: pointer; font-size: 13px; opacity: 0.4; transition: all 0.2s; 
+            color: #333333;
+            color: var(--text-main); 
+            font-weight: 500;
+            margin-left: 15px; /* 兼容老版浏览器无 gap 属性 */
+        }
+        .ratio-text:first-child { margin-left: 0; }
+        .ratio-text:hover { opacity: 0.7; }
+        .ratio-text.active { 
+            opacity: 1; 
+            color: #4a725b;
+            color: var(--accent); 
+            font-weight: 600; 
+        }
+
+        /* 通用按钮样式 */
+        .btn {
+            background-color: #4a725b;
+            background-color: var(--accent); 
+            color: #ffffff;
+            color: var(--btn-text); 
+            border: none;
+            padding: 14px; border-radius: 0;
+            cursor: pointer; font-size: 15px; font-weight: 500; transition: all 0.3s;
+            text-align: center; width: 100%; box-sizing: border-box;
+        }
+        .btn:hover { 
+            background-color: #3b5a48;
+            background-color: var(--btn-hover); 
+        }
+
+        .btn.btn-dark {
+            background-color: #2c4a3b;
+            background-color: var(--btn-dl);
+        }
+        .btn.btn-dark:hover {
+            background-color: #3b5a48;
+            background-color: var(--btn-hover);
+        }
+
+        /* 专门取消上传后文件信息框的 hover 变色效果 */
+        #fileInfoBox { cursor: default; }
+        #fileInfoBox:hover { 
+            background-color: #2c4a3b !important;
+            background-color: var(--btn-dl) !important; 
+        }
+
+        /* 色彩选择 UI */
+        .color-picker-wrap {
+            display: flex; justify-content: space-between; margin-bottom: 20px;
+        }
+        .color-field {
+            width: 48%; /* 兼容老版浏览器无 gap 属性 */
+            display: flex; flex-direction: column;
+        }
+        .color-label {
+            font-size: 13px; 
+            color: #555555;
+            color: var(--label-color); 
+            margin-bottom: 5px; font-weight: 500;
+        }
+        .color-input-box {
+            display: flex; align-items: center; background: #fff;
+            border: 1px solid #e0e8e3;
+            border: 1px solid var(--control-border); 
+            height: 28px; 
+        }
+        .swatch-container {
+            position: relative; width: 32px; height: 100%;
+            border-right: 1px solid #e0e8e3;
+            border-right: 1px solid var(--control-border);
+        }
+        .swatch-container input[type="color"] {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0; cursor: pointer; border: none; padding: 0;
+        }
+        .color-swatch {
+            width: 100%; height: 100%; 
+        }
+        .color-hex {
+            flex: 1; text-align: center; 
+            font-size: 14px; font-weight: 500; color: #111; 
+            cursor: text; user-select: text;
+            border: none; outline: none; background: transparent;
+            font-family: inherit; width: 100%;
+        }
+        .color-hex:focus {
+            color: #4a725b;
+            color: var(--accent);
+        }
+
+        /* 滑块控制区域 */
+        .controls {
+            display: flex; flex-direction: column;
+            margin: 0 0 35px 0; padding: 0;
+            background: transparent; 
+            border: none;
+        }
+        .control-group { 
+            display: flex; flex-direction: column; align-items: flex-start; 
+            margin-bottom: 22px; 
+        }
+        .control-group:last-child { margin-bottom: 0; }
+        
+        .control-group label {
+            width: 100%; display: flex; justify-content: space-between;
+            margin-bottom: 12px; font-weight: 500; 
+            color: #555555;
+            color: var(--label-color); 
+            font-size: 13px;
+        }
+        .control-group label .val { 
+            color: #4a725b;
+            color: var(--accent); 
+            font-size: 14px; font-weight: 500; 
+        }
+        
+        input[type="range"] {
+            width: 100%; -webkit-appearance: none; height: 6px;
+            background: #d0ded5;
+            background: linear-gradient(to right, var(--btn-hover) var(--percent, 50%), var(--track-bg) var(--percent, 50%));
+            border-radius: 3px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 18px; height: 18px;
+            background: #4a725b;
+            background: var(--accent); 
+            border-radius: 50%; 
+            border: none;       
+            cursor: pointer;
+            transition: background 0.4s;
+        }
+
+        /* 底部导出及随色图形区域 */
+        .export-section {
+            margin-top: auto; 
+            margin-bottom: 20px;
+            display: flex; flex-direction: column;
+        }
+        .export-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: #555555;
+            color: var(--label-color);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        /* 兼容无 grid 甚至无 gap flex 的环境 */
+        .dl-group {
+            display: flex; flex-wrap: wrap; justify-content: space-between;
+        }
+        .dl-group .btn {
+            width: 31%; /* 一行三列兼容 */
+            padding: 12px 0; font-size: 14px; font-weight: 500;
+            box-sizing: border-box;
+        }
+        .full-width-btn {
+            width: 100% !important;
+            margin-top: 10px;
+            background-color: #4a725b;
+            background-color: var(--accent);
+        }
+        .full-width-btn:hover {
+            background-color: #3b5a48;
+            background-color: var(--btn-hover);
+        }
+
+        /* 右侧工作区 */
+        .workspace {
+            flex: 1;
+            display: flex;
+            justify-content: center; 
+            align-items: center;
+            background-color: #e8ebed;
+            background-color: var(--canvas-bg);
+            padding: 40px;
+            box-sizing: border-box;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* 彻底满屏状态：0内边距，取消边框外显 */
+        .workspace.mode-full {
+            padding: 0;
+        }
+
+        canvas { 
+            max-width: 100%; 
+            max-height: 100%;
+            width: auto; height: auto;
+            object-fit: contain;
+            display: block; 
+            background-color: transparent;
+        }
+        
+        /* 彻底满屏状态：画框100%撑满，隐藏多余边角 */
+        canvas.mode-full {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { 
+            background: #c4d1c9;
+            background: var(--canvas-border); 
+            border-radius: 0; 
+        }
+
+        @media (max-width: 768px) {
+            body { overflow: auto; }
+            .container { flex-direction: column; }
+            .left-panel { flex: none; width: 100%; border-right: none; border-bottom: 1px solid #e0e8e3; border-bottom: 1px solid var(--control-border); }
+            .workspace { padding: 20px; min-height: 60vh; }
+            .workspace.mode-full { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="left-panel">
+        
+        <div class="preview-box" id="previewBox">
+            <span id="previewPlaceholder">图像预览 <span style="font-size: 12px; opacity: 0.8;">PREVIEW</span></span>
+            <img id="previewImg" alt="原图预览">
+        </div>
+        
+        <div class="upload-area">
+            <label class="btn btn-dark" id="uploadLabel">
+                <input type="file" id="imageUpload" accept=".jpg, .jpeg, .png, image/jpeg, image/png">
+                选择上传图片
+            </label>
+            <div id="fileInfoBox" class="btn btn-dark" style="display: none; justify-content: center; align-items: center; position: relative;">
+                <span id="fileName"></span>
+                <span id="removeFile" style="cursor: pointer; font-weight: 100; position: absolute; right: 20px; font-size: 16px; opacity: 0.7; font-family: 'Helvetica Neue', 'Segoe UI', sans-serif;" title="取消当前图片">X</span>
+            </div>
+        </div>
+
+        <div class="ratio-container">
+            <div class="color-label" style="margin-bottom: 0;">画布比例 (RATIO)</div>
+            <div class="ratio-wrapper">
+                <span class="ratio-text" data-ratio="3/4">3:4</span>
+                <span class="ratio-text active" data-ratio="full">满屏</span>
+            </div>
+        </div>
+        
+        <div class="color-picker-wrap">
+            <div class="color-field">
+                <div class="color-label">油墨 (INK)</div>
+                <div class="color-input-box">
+                    <div class="swatch-container">
+                        <div class="color-swatch" id="inkSwatch" style="background: #727A73;"></div>
+                        <input type="color" id="inkColor" value="#727A73">
+                    </div>
+                    <input type="text" class="color-hex" id="inkHex" value="#727A73" maxlength="7" autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+            <div class="color-field">
+                <div class="color-label">纸张 (PAPER)</div>
+                <div class="color-input-box">
+                    <div class="swatch-container">
+                        <div class="color-swatch" id="paperSwatch" style="background: #E7F2EC;"></div>
+                        <input type="color" id="paperColor" value="#E7F2EC">
+                    </div>
+                    <input type="text" class="color-hex" id="paperHex" value="#E7F2EC" maxlength="7" autocomplete="off" spellcheck="false">
+                </div>
+            </div>
+        </div>
+
+        <div class="controls" id="controls">
+            <div class="control-group">
+                <label><span id="label-p1">黑白阈值</span> <span class="val" id="val-p1">128</span></label>
+                <input type="range" id="p1" min="20" max="230" step="1" value="128">
+            </div>
+            <div class="control-group">
+                <label><span id="label-p2">墨水晕染</span> <span class="val" id="val-p2">2.0</span></label>
+                <input type="range" id="p2" min="0" max="8" step="0.5" value="2.0">
+            </div>
+            <div class="control-group">
+                <label><span id="label-p3">纸张纤维</span> <span class="val" id="val-p3">60</span></label>
+                <input type="range" id="p3" min="0" max="150" step="1" value="60">
+            </div>
+            <div class="control-group">
+                <label><span id="label-p4">纤维大小</span> <span class="val" id="val-p4">4</span></label>
+                <input type="range" id="p4" min="2" max="12" step="1" value="4">
+            </div>
+            <div class="control-group">
+                <label><span id="label-p5">图形缩放</span> <span class="val" id="val-p5">1.0</span></label>
+                <input type="range" id="p5" min="0.1" max="4.0" step="0.1" value="1.0">
+            </div>
+        </div>
+
+        <div class="export-section">
+            <div class="export-title">EXPORT</div>
+            <div class="dl-group" id="dlGroup">
+                <button id="dl-jpg" class="btn btn-dark">JPG</button>
+                <button id="dl-png" class="btn btn-dark">PNG</button>
+                <button id="dl-svg" class="btn btn-dark">SVG</button>
+                <button id="btn-random-colors" class="btn full-width-btn">随机图形色彩</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="workspace mode-full" id="workspace">
+        <canvas id="canvas" class="mode-full"></canvas>
+    </div>
+</div>
+
+<script>
+    var canvas = document.getElementById('canvas');
+    var ctx = canvas.getContext('2d');
+    var previewImg = document.getElementById('previewImg');
+    var previewBox = document.getElementById('previewBox');
+    var previewPlaceholder = document.getElementById('previewPlaceholder');
+
+    function hexToRgb(hex) {
+        var r = 0, g = 0, b = 0;
+        if (hex.length === 7) {
+            r = parseInt(hex.substring(1, 3), 16);
+            g = parseInt(hex.substring(3, 5), 16);
+            b = parseInt(hex.substring(5, 7), 16);
+        }
+        return { r: r, g: g, b: b };
+    }
+
+    function rgbToHex(r, g, b) {
+        return "#" + (1 << 24 | r << 16 | g << 8 | b).toString(16).slice(1).toUpperCase();
+    }
+
+    function hslToRgb(h, s, l) {
+        var r, g, b;
+        if (s === 0) {
+            r = g = b = l;
+        } else {
+            var hue2rgb = function(p, q, t) {
+                if (t < 0) t += 1;
+                if (t > 1) t -= 1;
+                if (t < 1/6) return p + (q - p) * 6 * t;
+                if (t < 1/2) return q;
+                if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+                return p;
+            };
+            var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+            var p = 2 * l - q;
+            r = hue2rgb(p, q, h + 1/3);
+            g = hue2rgb(p, q, h);
+            b = hue2rgb(p, q, h - 1/3);
+        }
+        return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+    }
+
+    function getAverageColor(imgElement) {
+        var tempCanvas = document.createElement('canvas');
+        var tempCtx = tempCanvas.getContext('2d');
+        var width = tempCanvas.width = 64; 
+        var height = tempCanvas.height = 64;
+        
+        tempCtx.drawImage(imgElement, 0, 0, width, height);
+        var data = tempCtx.getImageData(0, 0, width, height).data;
+        var r = 0, g = 0, b = 0, count = 0;
+        
+        for (var i = 0; i < data.length; i += 4) {
+            if (data[i + 3] > 128) { 
+                r += data[i];
+                g += data[i + 1];
+                b += data[i + 2];
+                count++;
+            }
+        }
+        if (count === 0) return 'var(--track-bg)'; 
+        return 'rgb(' + Math.floor(r / count) + ', ' + Math.floor(g / count) + ', ' + Math.floor(b / count) + ')';
+    }
+
+    var currentColorDark = hexToRgb('#727A73');
+    var currentColorLight = hexToRgb('#E7F2EC');
+    
+    var ratioMode = 'full'; 
+    var currentRatio = 1;
+
+    var THEMES = {
+        paper: {
+            filename: "paper-rubbing",
+            ui: { p1: { val: 128 }, p2: { val: 2.0 }, p3: { val: 60 }, p4: { val: 4 }, p5: { val: 1.0 } }
+        }
+    };
+    
+    var currentStyle = 'paper';
+    var originalImg = null;
+    var procCanvas = document.createElement('canvas'); 
+    var procCtx = procCanvas.getContext('2d', { willReadFrequently: true });
+
+    var cachedNoiseData = null;
+    var lastNoiseParams = { w: 0, h: 0, scale: 0 };
+    var globalSmallNoiseCanvas = null;
+
+
+    // ==========================================
+    // 核心重构：使用原生 60帧渲染节流取代延时器
+    // 确保绝对实时、跟手且不会卡死浏览器！
+    // ==========================================
+    var requestAnimFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.msRequestAnimationFrame || function(callback) { window.setTimeout(callback, 1000 / 60); };
+    
+    var isRendering = false;
+    var renderRequested = false;
+
+    function scheduleRender() {
+        if (isRendering) {
+            renderRequested = true;
+            return;
+        }
+        isRendering = true;
+        
+        requestAnimFrame(function() {
+            renderEffect(); // 实时计算，保证和屏幕刷新同步
+            isRendering = false;
+            
+            // 如果在渲染期间滑块又发生了滑动，马上发起下一帧同步
+            if (renderRequested) {
+                renderRequested = false;
+                scheduleRender();
+            }
+        });
+    }
+
+    function updateSliderTrack(el) {
+        var min = parseFloat(el.min) || 0;
+        var max = parseFloat(el.max) || 100;
+        var val = parseFloat(el.value);
+        var percent = ((val - min) / (max - min)) * 100;
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+        el.style.setProperty('--percent', percent + '%');
+    }
+
+    var sliders = ['p1', 'p2', 'p3', 'p4', 'p5'];
+    for (var i = 0; i < sliders.length; i++) {
+        updateSliderTrack(document.getElementById(sliders[i]));
+    }
+
+    document.getElementById('inkColor').addEventListener('input', function(e) {
+        var hex = e.target.value.toUpperCase();
+        document.getElementById('inkHex').value = hex;
+        document.getElementById('inkSwatch').style.backgroundColor = hex;
+        currentColorDark = hexToRgb(hex);
+        scheduleRender(); // 取消延时，改用硬件帧同步渲染
+    });
+
+    document.getElementById('paperColor').addEventListener('input', function(e) {
+        var hex = e.target.value.toUpperCase();
+        document.getElementById('paperHex').value = hex;
+        document.getElementById('paperSwatch').style.backgroundColor = hex;
+        currentColorLight = hexToRgb(hex);
+        scheduleRender(); 
+    });
+
+    function handleHexTextInput(e, type) {
+        var hex = e.target.value.trim().toUpperCase();
+        if (hex.length > 0 && hex[0] !== '#') hex = '#' + hex;
+        
+        if (/^#[0-9A-F]{6}$/i.test(hex)) {
+            if (type === 'ink') {
+                document.getElementById('inkColor').value = hex;
+                document.getElementById('inkSwatch').style.backgroundColor = hex;
+                currentColorDark = hexToRgb(hex);
+            } else {
+                document.getElementById('paperColor').value = hex;
+                document.getElementById('paperSwatch').style.backgroundColor = hex;
+                currentColorLight = hexToRgb(hex);
+            }
+            scheduleRender();
+        }
+    }
+    
+    document.getElementById('inkHex').addEventListener('input', function(e) { handleHexTextInput(e, 'ink'); });
+    document.getElementById('paperHex').addEventListener('input', function(e) { handleHexTextInput(e, 'paper'); });
+    
+    document.getElementById('inkHex').addEventListener('blur', function() {
+        this.value = rgbToHex(currentColorDark.r, currentColorDark.g, currentColorDark.b);
+    });
+    document.getElementById('paperHex').addEventListener('blur', function() {
+        this.value = rgbToHex(currentColorLight.r, currentColorLight.g, currentColorLight.b);
+    });
+
+    document.getElementById('btn-random-colors').addEventListener('click', function() {
+        var baseHue = Math.random(); 
+        
+        var inkHue = baseHue;
+        var inkSat = 0.2 + Math.random() * 0.3;
+        var inkLight = 0.15 + Math.random() * 0.2;
+        var inkColor = hslToRgb(inkHue, inkSat, inkLight);
+
+        var paperHue = (baseHue + 0.5 + (Math.random() * 0.1 - 0.05)) % 1.0; 
+        var paperSat = 0.1 + Math.random() * 0.15;
+        var paperLight = 0.85 + Math.random() * 0.1;
+        var paperColor = hslToRgb(paperHue, paperSat, paperLight);
+
+        currentColorDark = inkColor;
+        currentColorLight = paperColor;
+
+        var inkHexVal = rgbToHex(inkColor.r, inkColor.g, inkColor.b);
+        var paperHexVal = rgbToHex(paperColor.r, paperColor.g, paperColor.b);
+
+        document.getElementById('inkColor').value = inkHexVal;
+        document.getElementById('inkSwatch').style.backgroundColor = inkHexVal;
+        document.getElementById('inkHex').value = inkHexVal;
+
+        document.getElementById('paperColor').value = paperHexVal;
+        document.getElementById('paperSwatch').style.backgroundColor = paperHexVal;
+        document.getElementById('paperHex').value = paperHexVal;
+
+        scheduleRender();
+    });
+
+    var ratioBtns = document.querySelectorAll('.ratio-text');
+    for (var j = 0; j < ratioBtns.length; j++) {
+        ratioBtns[j].addEventListener('click', function() {
+            var btns = document.querySelectorAll('.ratio-text');
+            for (var k = 0; k < btns.length; k++) {
+                btns[k].classList.remove('active');
+            }
+            this.classList.add('active');
+            ratioMode = this.getAttribute('data-ratio');
+            
+            var workspace = document.getElementById('workspace');
+            if (ratioMode === 'full') {
+                workspace.classList.add('mode-full');
+                canvas.classList.add('mode-full');
+            } else {
+                workspace.classList.remove('mode-full');
+                canvas.classList.remove('mode-full');
+            }
+            scheduleRender();
+        });
+    }
+
+    window.addEventListener('resize', function() {
+        if (ratioMode === 'full') {
+            scheduleRender();
+        }
+    });
+
+    // 滑块核心事件
+    for (var m = 0; m < sliders.length; m++) {
+        (function(id) {
+            var el = document.getElementById(id);
+            var onSliderChange = function() {
+                var displayVal = el.value;
+                if (id === 'p5' && displayVal.indexOf('.') === -1) displayVal += '.0';
+                
+                document.getElementById('val-' + id).innerText = displayVal;
+                THEMES[currentStyle].ui[id].val = el.value; 
+                updateSliderTrack(el); 
+                
+                // 彻底取消之前的 setTimeout，启用原生底层的高速无缝帧同步渲染
+                scheduleRender(); 
+            };
+            el.addEventListener('input', onSliderChange);
+            el.addEventListener('change', onSliderChange); 
+        })(sliders[m]);
+    }
+
+    document.getElementById('imageUpload').addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+
+        var rawName = file.name;
+        var displayName = rawName.length > 8 ? rawName.substring(0, 8) + '...' : rawName;
+        document.getElementById('fileName').innerText = displayName;
+        document.getElementById('uploadLabel').style.display = 'none';
+        document.getElementById('fileInfoBox').style.display = 'flex';
+
+        var reader = new FileReader();
+        reader.onload = function(event) {
+            originalImg = new Image();
+            originalImg.onload = function() {
+                previewImg.src = event.target.result;
+                previewImg.style.display = 'block';
+                previewPlaceholder.style.display = 'none';
+                previewBox.style.backgroundColor = getAverageColor(originalImg); 
+                renderEffect();
+            };
+            originalImg.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    document.getElementById('removeFile').addEventListener('click', function(e) {
+        e.stopPropagation();
+        document.getElementById('imageUpload').value = '';
+        originalImg = null;
+        previewImg.src = '';
+        previewImg.style.display = 'none';
+        previewPlaceholder.style.display = 'block';
+        previewBox.style.backgroundColor = '';
+        
+        document.getElementById('uploadLabel').style.display = '';
+        document.getElementById('fileInfoBox').style.display = 'none';
+        
+        renderEffect();
+    });
+
+    function generateCloudNoise(width, height, scale, blurAmount) {
+        if (cachedNoiseData && lastNoiseParams.w === width && lastNoiseParams.h === height && lastNoiseParams.scale === scale) {
+            return cachedNoiseData;
+        }
+
+        var FIX_DIM = 4000; 
+
+        if (!globalSmallNoiseCanvas || globalSmallNoiseCanvas.scale !== scale) {
+            var smallW = Math.max(1, Math.floor(FIX_DIM / scale));
+            var smallH = Math.max(1, Math.floor(FIX_DIM / scale));
+            
+            var noiseCanvas = document.createElement('canvas');
+            noiseCanvas.width = smallW;
+            noiseCanvas.height = smallH;
+            var nCtx = noiseCanvas.getContext('2d', { willReadFrequently: true });
+            
+            var idata = nCtx.createImageData(smallW, smallH);
+            var d = idata.data;
+            for (var i = 0; i < d.length; i += 4) {
+                var val = Math.random() * 255;
+                d[i] = d[i+1] = d[i+2] = val;
+                d[i+3] = 255;
+            }
+            nCtx.putImageData(idata, 0, 0);
+
+            globalSmallNoiseCanvas = noiseCanvas;
+            globalSmallNoiseCanvas.scale = scale;
+            globalSmallNoiseCanvas.FIX_DIM = FIX_DIM;
+        }
+
+        var cloudCanvas = document.createElement('canvas');
+        cloudCanvas.width = width;
+        cloudCanvas.height = height;
+        var cCtx = cloudCanvas.getContext('2d', { willReadFrequently: true });
+        
+        cCtx.imageSmoothingEnabled = true; 
+        cCtx.webkitImageSmoothingEnabled = true;
+        cCtx.mozImageSmoothingEnabled = true;
+        cCtx.msImageSmoothingEnabled = true;
+        
+        if (blurAmount > 0) {
+            cCtx.filter = 'blur(' + blurAmount + 'px)';
+        }
+        
+        var nx = Math.floor((width - FIX_DIM) / 2);
+        var ny = Math.floor((height - FIX_DIM) / 2);
+        cCtx.drawImage(globalSmallNoiseCanvas, nx, ny, FIX_DIM, FIX_DIM);
+        
+        cachedNoiseData = cCtx.getImageData(0, 0, width, height).data;
+        lastNoiseParams = { w: width, h: height, scale: scale };
+        return cachedNoiseData;
+    }
+
+    function updateCanvasRatio() {
+        var workspace = document.getElementById('workspace');
+        if (ratioMode === 'full') {
+            var cw = workspace.clientWidth;
+            var ch = workspace.clientHeight;
+            if (ch > 0 && cw > 0) {
+                currentRatio = cw / ch;
+            } else {
+                currentRatio = 1;
+            }
+        } else {
+            var parts = ratioMode.split('/');
+            currentRatio = parseFloat(parts[0]) / parseFloat(parts[1]);
+        }
+    }
+
+    function renderEffect() {
+        updateCanvasRatio();
+        var BASE_DIM = 1200; 
+        var w, h;
+        
+        if (!originalImg) {
+            if (currentRatio >= 1) {
+                w = BASE_DIM;
+                h = Math.floor(BASE_DIM / currentRatio);
+            } else {
+                h = BASE_DIM;
+                w = Math.floor(BASE_DIM * currentRatio);
+            }
+            canvas.width = procCanvas.width = w;
+            canvas.height = procCanvas.height = h;
+            ctx.fillStyle = 'rgb(' + currentColorLight.r + ', ' + currentColorLight.g + ', ' + currentColorLight.b + ')';
+            ctx.fillRect(0, 0, w, h);
+            return;
+        }
+
+        var sRatio = originalImg.width / originalImg.height;
+        var cRatio = currentRatio;
+        
+        var baseImgW = sRatio >= 1 ? BASE_DIM : BASE_DIM * sRatio;
+        var baseImgH = sRatio >= 1 ? BASE_DIM / sRatio : BASE_DIM;
+
+        if (sRatio > cRatio) {
+            w = Math.round(baseImgW);
+            h = Math.round(baseImgW / cRatio);
+        } else {
+            h = Math.round(baseImgH);
+            w = Math.round(baseImgH * cRatio);
+        }
+        
+        canvas.width = procCanvas.width = w;
+        canvas.height = procCanvas.height = h;
+
+        var threshold = parseFloat(document.getElementById('p1').value);
+        var imgBlur = parseFloat(document.getElementById('p2').value);
+        var intensity = parseFloat(document.getElementById('p3').value);
+        var noiseScale = parseFloat(document.getElementById('p4').value);
+        var imgScale = parseFloat(document.getElementById('p5').value);
+
+        procCtx.fillStyle = '#FFFFFF';
+        procCtx.fillRect(0, 0, w, h);
+
+        var dw = baseImgW * imgScale;
+        var dh = baseImgH * imgScale;
+        var dx = Math.floor((w - dw) / 2);
+        var dy = Math.floor((h - dh) / 2);
+        dw = Math.floor(dw);
+        dh = Math.floor(dh);
+
+        if (imgBlur > 0) {
+            procCtx.filter = 'blur(' + imgBlur + 'px)';
+        }
+        procCtx.drawImage(originalImg, dx, dy, dw, dh);
+        procCtx.filter = 'none';
+
+        var imgData = procCtx.getImageData(0, 0, w, h);
+        var pixels = imgData.data;
+        var noiseData = generateCloudNoise(w, h, noiseScale, 0);
+
+        // ==========================================
+        // 核心渲染提速压榨！
+        // 缓存频繁读取的对象属性，去除耗时的除法预算，极大程度压榨性能，确保滑动顺滑
+        // ==========================================
+        var dr = currentColorDark.r, dg = currentColorDark.g, db = currentColorDark.b;
+        var lr = currentColorLight.r, lg = currentColorLight.g, lb = currentColorLight.b;
+        var len = pixels.length;
+
+        for (var i = 0; i < len; i += 4) {
+            var pr = pixels[i], pg = pixels[i+1], pb = pixels[i+2], pa = pixels[i+3];
+
+            if (pa < 20) { pr = 255; pg = 255; pb = 255; }
+
+            // 图像灰度值计算
+            var gray = 0.299 * pr + 0.587 * pg + 0.114 * pb;
+            
+            // 采用乘法 ( * 0.0078125 ) 替代旧版的除法 ( / 128 ) 计算，性能提升极为显著！
+            var noiseOffset = (noiseData[i] - 128) * 0.0078125; 
+            var finalValue = gray + (noiseOffset * intensity);
+            
+            if (finalValue < threshold) {
+                pixels[i]   = dr;
+                pixels[i+1] = dg;
+                pixels[i+2] = db;
+            } else {
+                pixels[i]   = lr;
+                pixels[i+1] = lg;
+                pixels[i+2] = lb;
+            }
+            pixels[i+3] = 255; 
+        }
+        
+        ctx.putImageData(imgData, 0, 0);
+    }
+
+    function exportHighRes(ext) {
+        if (!originalImg) {
+            alert("请先选择并上传一张图片！");
+            return;
+        }
+
+        var btn = document.getElementById(ext === 'jpg' ? 'dl-jpg' : 'dl-png');
+        var oldText = btn.innerText;
+        btn.innerText = "loading"; 
+
+        setTimeout(function() {
+            try {
+                var exportCanvas = document.createElement('canvas');
+                var exCtx = exportCanvas.getContext('2d');
+                var exProcCanvas = document.createElement('canvas');
+                var exProcCtx = exProcCanvas.getContext('2d', { willReadFrequently: true });
+                
+                var LONG_EDGE = 4960;
+                var previewW = canvas.width;
+                var previewH = canvas.height;
+                
+                var scaleFactor = LONG_EDGE / Math.max(previewW, previewH);
+                var w = Math.round(previewW * scaleFactor);
+                var h = Math.round(previewH * scaleFactor);
+                
+                exportCanvas.width = exProcCanvas.width = w;
+                exportCanvas.height = exProcCanvas.height = h;
+
+                var threshold = parseFloat(document.getElementById('p1').value);
+                var imgBlur = parseFloat(document.getElementById('p2').value) * scaleFactor;
+                var intensity = parseFloat(document.getElementById('p3').value);
+                var imgScale = parseFloat(document.getElementById('p5').value);
+
+                exProcCtx.fillStyle = '#FFFFFF';
+                exProcCtx.fillRect(0, 0, w, h);
+
+                var sRatio = originalImg.width / originalImg.height;
+                var BASE_DIM = 1200;
+                var baseImgW = sRatio >= 1 ? BASE_DIM : BASE_DIM * sRatio;
+                var baseImgH = sRatio >= 1 ? BASE_DIM / sRatio : BASE_DIM;
+
+                var dw = baseImgW * scaleFactor * imgScale;
+                var dh = baseImgH * scaleFactor * imgScale;
+                var dx = Math.floor((w - dw) / 2);
+                var dy = Math.floor((h - dh) / 2);
+                dw = Math.floor(dw);
+                dh = Math.floor(dh);
+
+                if (imgBlur > 0) {
+                    exProcCtx.filter = 'blur(' + imgBlur + 'px)';
+                }
+                exProcCtx.drawImage(originalImg, dx, dy, dw, dh);
+                exProcCtx.filter = 'none';
+
+                var imgData = exProcCtx.getImageData(0, 0, w, h);
+                var pixels = imgData.data;
+                
+                var cloudCanvas = document.createElement('canvas');
+                cloudCanvas.width = w;
+                cloudCanvas.height = h;
+                var cCtx = cloudCanvas.getContext('2d', { willReadFrequently: true });
+                
+                cCtx.imageSmoothingEnabled = true; 
+                cCtx.webkitImageSmoothingEnabled = true;
+                cCtx.mozImageSmoothingEnabled = true;
+                cCtx.msImageSmoothingEnabled = true;
+                
+                if (globalSmallNoiseCanvas) {
+                    var FIX_DIM = globalSmallNoiseCanvas.FIX_DIM || 4000;
+                    var scaledFixDim = Math.round(FIX_DIM * scaleFactor);
+                    var nx = Math.floor((w - scaledFixDim) / 2);
+                    var ny = Math.floor((h - scaledFixDim) / 2);
+                    cCtx.drawImage(globalSmallNoiseCanvas, nx, ny, scaledFixDim, scaledFixDim);
+                }
+                var noiseData = cCtx.getImageData(0, 0, w, h).data;
+
+                var dr = currentColorDark.r, dg = currentColorDark.g, db = currentColorDark.b;
+                var lr = currentColorLight.r, lg = currentColorLight.g, lb = currentColorLight.b;
+
+                for (var i = 0; i < pixels.length; i += 4) {
+                    var pr = pixels[i], pg = pixels[i+1], pb = pixels[i+2], pa = pixels[i+3];
+
+                    if (pa < 20) { pr = 255; pg = 255; pb = 255; }
+
+                    var gray = 0.299 * pr + 0.587 * pg + 0.114 * pb;
+                    var noiseOffset = (noiseData[i] - 128) * 0.0078125; 
+                    
+                    var finalValue = gray + (noiseOffset * intensity);
+                    
+                    if (finalValue < threshold) {
+                        pixels[i]   = dr;
+                        pixels[i+1] = dg;
+                        pixels[i+2] = db;
+                        pixels[i+3] = 255; 
+                    } else {
+                        if (ext === 'png') {
+                            pixels[i]   = 0;
+                            pixels[i+1] = 0;
+                            pixels[i+2] = 0;
+                            pixels[i+3] = 0; 
+                        } else {
+                            pixels[i]   = lr;
+                            pixels[i+1] = lg;
+                            pixels[i+2] = lb;
+                            pixels[i+3] = 255; 
+                        }
+                    }
+                }
+                
+                exCtx.putImageData(imgData, 0, 0);
+                
+                var url = exportCanvas.toDataURL(ext === 'jpg' ? 'image/jpeg' : 'image/png', ext === 'jpg' ? 0.95 : 1.0);
+                var link = document.createElement('a');
+                link.download = THEMES[currentStyle].filename + '-HD-A3-' + Date.now() + '.' + ext;
+                link.href = url;
+                link.click();
+
+                exportCanvas.width = 0;
+                exProcCanvas.width = 0;
+                cloudCanvas.width = 0;
+            } catch (e) {
+                console.error(e);
+                alert("导出失败，系统运行内存可能无法承载A3高清尺寸资源。");
+            } finally {
+                btn.innerText = oldText;
+            }
+        }, 80);
+    }
+
+    function triggerDownload(url, ext) {
+        if (!originalImg) {
+            alert("请先选择并上传一张图片！");
+            return;
+        }
+        var link = document.createElement('a');
+        link.download = THEMES[currentStyle].filename + '-' + Date.now() + '.' + ext;
+        link.href = url;
+        link.click();
+    }
+
+    document.getElementById('dl-jpg').addEventListener('click', function() { exportHighRes('jpg'); });
+    document.getElementById('dl-png').addEventListener('click', function() { exportHighRes('png'); });
+
+    document.getElementById('dl-svg').addEventListener('click', function() {
+        if (!originalImg) return triggerDownload('', 'svg');
+        
+        var btn = document.getElementById('dl-svg');
+        var oldText = btn.innerText;
+        btn.innerText = "loading";
+        
+        setTimeout(function() {
+            try {
+                var w = canvas.width;
+                var h = canvas.height;
+                var imgData = ctx.getImageData(0, 0, w, h);
+                var pixels = imgData.data; 
+                
+                var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + w + ' ' + h + '" width="' + w + '" height="' + h + '">';
+                svg += '<rect width="' + w + '" height="' + h + '" fill="rgb(' + currentColorLight.r + ',' + currentColorLight.g + ',' + currentColorLight.b + ')" />';
+                
+                var path = "";
+                for (var y = 0; y < h; y++) {
+                    var startX = -1;
+                    for (var x = 0; x <= w; x++) {
+                        var i = (y * w + x) * 4;
+                        var isDark = x < w && (pixels[i] === currentColorDark.r && pixels[i+1] === currentColorDark.g && pixels[i+2] === currentColorDark.b);
+                        
+                        if (isDark) {
+                            if (startX === -1) startX = x;
+                        } else {
+                            if (startX !== -1) {
+                                var length = x - startX;
+                                path += 'M' + startX + ' ' + y + 'h' + length + 'v1h-' + length + 'Z ';
+                                startX = -1;
+                            }
+                        }
+                    }
+                }
+                
+                svg += '<path fill="rgb(' + currentColorDark.r + ',' + currentColorDark.g + ',' + currentColorDark.b + ')" d="' + path + '" />';
+                svg += '</svg>';
+                
+                var blob = new Blob([svg], { type: 'image/svg+xml' });
+                var url = URL.createObjectURL(blob);
+                triggerDownload(url, 'svg');
+                
+                setTimeout(function() { URL.revokeObjectURL(url); }, 1000);
+            } finally {
+                btn.innerText = oldText;
+            }
+        }, 80);
+    });
+
+    window.addEventListener('DOMContentLoaded', function() {
+        renderEffect();
+    });
+</script>
+</body>
+</html>
+    
+  </body>
+  
+</html>
